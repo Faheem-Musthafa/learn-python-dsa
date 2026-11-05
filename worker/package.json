@@ -1,0 +1,22 @@
+{
+  "name": "stepwise-sync-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in progress sync for Stepwise: a Cloudflare Worker with a GitHub mirror.",
+  "scripts": {
+    "fixtures": "node test/make-fixtures.mjs",
+    "pretest": "node test/make-fixtures.mjs",
+    "test": "vitest run",
+    "dev": "wrangler dev",
+    "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "smoke": "node test/smoke.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@vitest/runner": "^4.1.12",
+    "@vitest/snapshot": "^4.1.12",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.158.0"
+  }
+}

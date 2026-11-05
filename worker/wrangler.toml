@@ -1,0 +1,63 @@
+# Stepwise progress sync. Setup steps are in worker/README.md.
+# Nothing in this file is secret. GITHUB_TOKEN is set with `npx wrangler secret put GITHUB_TOKEN`
+# and must never be written here.
+name = "stepwise-sync"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+account_id = "5dcff4f900ff8940bf7e42b8e449cddd"
+
+# Paste the id printed by `npx wrangler kv namespace create PROGRESS`.
+[[kv_namespaces]]
+binding = "PROGRESS"
+id = "8f9e1562e62c4e9997dee4fb930638ea"
+
+# Hourly, on the hour, UTC: writes whatever changed to GitHub as one commit.
+[triggers]
+crons = ["0 * * * *"]
+
+# Worker logs would record request URLs, and GET /v1/sync has the learner's id in its URL.
+# Leave this off. `npx wrangler tail` is still there when you need to look at something.
+[observability]
+enabled = false
+
+[vars]
+# Comma separated, exact matches only. A "*" here is ignored.
+ALLOWED_ORIGINS = "https://faheem-musthafa.github.io,http://localhost:8765,http://127.0.0.1:8765"
+GITHUB_OWNER = "Faheem-Musthafa"
+GITHUB_REPO = "learn-python-dsa-progress"
+GITHUB_BRANCH = "main"
+# Bytes of request body as sent, before any unpacking. Gzip lets a whole course fit. See docs/SYNC.md.
+MAX_BODY_BYTES = "65536"
+# Bytes of JSON after unpacking.
+MAX_JSON_BYTES = "1048576"
+MIN_SYNC_SECONDS = "60"
+MAX_NEW_IDS_PER_DAY = "200"
+MIRROR_MAX_FILES = "300"
+# Bytes of stored data one hourly run may take. Sized for the free plan's 10 ms of CPU. On the paid
+# plan you can raise this a lot. What does not fit waits for the next run, and is not lost.
+MIRROR_MAX_BYTES = "393216"
+
+# Approximate limits, counted separately in each Cloudflare location. Period must be 10 or 60.
+# Per IP is generous, because a whole classroom can share one IP.
+[[ratelimits]]
+name = "RATE_IP"
+namespace_id = "2601"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+name = "RATE_ID"
+namespace_id = "2602"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+# New learners per IP.
+[[ratelimits]]
+name = "RATE_CLAIM"
+namespace_id = "2603"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
