@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stepwise</title>
+<meta name="description" content="Learn Python, data structures and algorithms from zero, with moving pictures, real code and practice questions.">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='20' width='9' height='10' rx='2' fill='%23FFD84D'/%3E%3Crect x='11.5' y='12' width='9' height='18' rx='2' fill='%232340C9'/%3E%3Crect x='21' y='3' width='9' height='27' rx='2' fill='%2315212E'/%3E%3C/svg%3E">
+<script>
+  // Sets the theme before the first paint, so there is no flash of the wrong colours.
+  try {
+    var p = (JSON.parse(localStorage.getItem('stepwise.v1')) || {}).prefs || {};
+    if (p.theme && p.theme !== 'system') document.documentElement.dataset.theme = p.theme;
+    if (p.size) document.documentElement.dataset.size = p.size;
+    if (p.spacing) document.documentElement.dataset.spacing = p.spacing;
+  } catch (e) {}
+  // If a script cannot load, say so. Otherwise the page stays on "Loading" for ever.
+  addEventListener('error', function (e) {
+    if (!e.target || e.target.tagName !== 'SCRIPT' || document.getElementById('load-fail')) return;
+    var box = document.createElement('p');
+    box.id = 'load-fail';
+    box.className = 'banner';
+    box.setAttribute('role', 'alert');
+    box.textContent = 'Part of the course did not load. Your progress is safe. Please reload the page.';
+    document.body.insertBefore(box, document.body.firstChild);
+  }, true);
+</script>
+</head>
+<body>
+<a class="skip" href="#main" onclick="event.preventDefault();document.getElementById('main').focus()">Skip to the lesson</a>
+<header id="topbar" class="topbar"></header>
+<main id="main" tabindex="-1">
+  <p id="boot" class="boot">Loading the course...</p>
+</main>
+<nav id="bottombar" class="bottombar" aria-label="Main"></nav>
+<noscript><p class="boot">This course needs JavaScript to run. Please turn it on and reload the page.</p></noscript>
+
+<script src="assets/js/course.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/py.js"></script>
+<script src="assets/js/viz.js"></script>
+<script src="assets/js/questions.js"></script>
+<script src="assets/js/lesson.js"></script>
+<script src="assets/js/views.js"></script>
+<script src="content/manifest.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
