@@ -282,12 +282,10 @@
     page.append(el('header.page-head.progress-head',
       el('div',
         el('h1', s.name ? `Hi ${s.name}` : 'Your progress'),
-        el('p', 'This is yours. It stays on this device. Nobody else can see it.')),
+        Q.saveNote(),
+        el('p', 'This is yours. Nobody else can see it. It belongs to this browser, at this web address. A private window forgets it when you close the window. Another browser or device starts empty, unless you use Download and Load, further down this page.')),
       next ? el('a.btn.btn-primary', { href: `#lesson-${next.id}`, html: `<span>Continue lesson ${esc(next.num)}</span>` + icon('arrow', 18) }) : null));
 
-    if (!Store.storageOk) {
-      page.append(el('p.banner', 'This browser is blocking saved data, so your progress will be lost when you close the page. Try a normal window, not a private one.'));
-    }
     // Backup nudge.
     const today = Store.dayKey();
     const lastBackup = s.backup.last;

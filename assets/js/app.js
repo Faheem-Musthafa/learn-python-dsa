@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   const { el, icon, rich, esc } = root.UI;
-  const { Store, Course, Views, Lesson } = root;
+  const { Store, Course, Views, Lesson, Q } = root;
   const main = () => document.getElementById('main');
 
   const NAV = [
@@ -30,6 +30,7 @@
       if (e.key === 'Escape') closePop();
     });
     Store.onChange(updateBadge);
+    Store.onChange(warnIfNotSaving);
   }
   function logoMark() {
     // Three stairs: the name of the course as a shape.
@@ -46,6 +47,7 @@
     const hash = (location.hash || '#home').slice(1);
     const m = main();
     closePop();
+    Lesson.leave();
     let view, active = hash, title = 'Stepwise';
     try {
       if (hash === 'home' || !hash) { view = Views.home(); active = 'home'; }
@@ -85,7 +87,8 @@
     }
     m.replaceChildren(view);
     document.title = title === 'Stepwise' ? 'Stepwise' : `${title} | Stepwise`;
-    if (!hash.startsWith('module-')) window.scrollTo(0, 0);
+    const resumed = hash.startsWith('lesson-') && Lesson.resume(hash.slice(7));
+    if (!resumed && !hash.startsWith('module-')) window.scrollTo(0, 0);
     document.querySelectorAll('[data-nav]').forEach(a => {
       const on = a.dataset.nav === active || (a.dataset.nav === 'more' && ['glossary', 'playground', 'prefs', 'about'].includes(active));
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -94,6 +97,22 @@
     // On first load the keyboard starts at the top of the page, so the skip link comes first.
     if (routed) m.focus({ preventScroll: true });
     routed = true;
+  }
+
+  // ------------------------------------------------------- saving has failed
+  /* Saving can stop at any moment, far from any saved note on the page. Say so where it will be seen. */
+  let warned = '';
+  function warnIfNotSaving() {
+    Q.paintSaveNotes();
+    const problem = Q.saveProblem();
+    let box = document.getElementById('save-warn');
+    if (!problem) { warned = ''; if (box) box.remove(); return; }
+    if (problem === warned) return;
+    warned = problem;
+    if (box) box.remove();
+    box = el('div.save-warn', { id: 'save-warn', role: 'alert' }, el('p', problem),
+      el('button.btn.btn-quiet', { type: 'button', onclick: () => document.getElementById('save-warn').remove() }, 'OK'));
+    document.body.append(box);
   }
 
   // ------------------------------------------------------------------- prefs
@@ -201,9 +220,12 @@
     Course.finish();
     shell();
     Store.trackTime();
+    // Lessons put the learner back themselves, once the page is drawn.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     if (Object.keys(Store.state.lessons).length) Store.askToPersist();
     root.addEventListener('hashchange', route);
     route();
+    warnIfNotSaving();
     const loading = document.getElementById('boot');
     if (loading) loading.remove();
   }

@@ -4,6 +4,97 @@
   const { el, rich, icon } = root.UI;
   const { Q, Viz, Store, Course } = root;
 
+  // ------------------------------------------------- where the learner stopped
+  /* The lesson on screen. Each block has a name in data-at, because the page changes height as
+     questions come back, and a block stays where it is in the lesson. */
+  let here = null;
+  const barBottom = () => { const t = document.getElementById('topbar'); return t ? t.getBoundingClientRect().bottom : 0; };
+
+  /* Remembers the block at the top of the screen. Above the lesson text means the top: warm-ups
+     come first and stay blank, so there is nothing there to come back to. */
+  function notePlace() {
+    if (!here || here.settling || !here.page.isConnected) return;
+    const line = barBottom() + 1;
+    let at = null, atY = 0;
+    for (const node of here.page.querySelectorAll('[data-at]')) {
+      const y = node.getBoundingClientRect().top;
+      if (y > line) break;
+      at = node;
+      atY = y;
+    }
+    const name = at && at.dataset.at;
+    const finished = (Store.lessonState(here.id) || {}).status === 'done';
+    if (!at || name === 'top' || (name === 'finish' && finished)) Store.setPlace(here.id, null);
+    else Store.setPlace(here.id, { a: name, d: Math.round(line - 1 - atY) });
+  }
+  function goToPlace(rec) {
+    const node = here && here.page.querySelector(`[data-at="${CSS.escape(String(rec.a))}"]`);
+    if (!node) return false;
+    const d = Math.min(Math.max(Number(rec.d) || 0, 0), node.offsetHeight);
+    const y = Math.max(0, Math.round(window.scrollY + node.getBoundingClientRect().top - barBottom() + d));
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo({ top: y, behavior: 'instant' });
+    return true;
+  }
+  function stopSettling() { if (here) here.settling = false; }
+  function dropPill() {
+    if (here && here.pill) { here.pill.remove(); here.pill = null; }
+  }
+  function goToTop(id) {
+    stopSettling();
+    dropPill();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    Store.setPlace(id, null);
+    const h = here && here.page.querySelector('h1');
+    if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  }
+  /* Takes the learner back to where they stopped. Pictures and fonts can still change the height for
+     a moment, so it checks again a few times, and stops the moment the learner does anything. */
+  function resume(id) {
+    if (!here || here.id !== id) return false;
+    const rec = Store.placeOf(id);
+    if (!rec || !goToPlace(rec)) return false;
+    const mine = here;
+    mine.settling = true;
+    const inputs = ['wheel', 'touchstart', 'pointerdown', 'keydown'];
+    const stop = () => {
+      mine.settling = false;
+      inputs.forEach(ev => window.removeEventListener(ev, stop, true));
+    };
+    inputs.forEach(ev => window.addEventListener(ev, stop, { passive: true, capture: true }));
+    const again = () => { if (here === mine && mine.settling) goToPlace(rec); };
+    [60, 200, 500, 1000, 1800].forEach(ms => setTimeout(again, ms));
+    setTimeout(() => { again(); stop(); }, 2600);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(again);
+    if (window.scrollY > 200) {
+      const warm = !!here.page.querySelector('#sec-warm');
+      mine.pill = el('div.resume-pill', { role: 'status' },
+        el('span', warm ? 'Back where you stopped. Warm-up questions are at the top.' : 'Back where you stopped.'),
+        el('button.btn.btn-quiet', { type: 'button', onclick: () => goToTop(id) }, 'Go to the top'));
+      mine.pillY = window.scrollY;
+      here.page.parentNode.prepend(mine.pill);
+      setTimeout(() => { if (here === mine) dropPill(); }, 12000);
+    }
+    return true;
+  }
+  /* Called before the page changes, while the old lesson is still there to measure. */
+  function leave() {
+    notePlace();
+    dropPill();
+    here = null;
+  }
+  let scrollWait = 0;
+  window.addEventListener('scroll', () => {
+    if (!here) return;
+    clearTimeout(scrollWait);
+    scrollWait = setTimeout(notePlace, 200);
+    if (here.pill && !here.settling && Math.abs(window.scrollY - here.pillY) > window.innerHeight) dropPill();
+  }, { passive: true });
+  Store.beforeLeave(notePlace);
+
+  /* A question answered anywhere on this page may finish the lesson. */
+  let onFinished = null;
+  root.DSA.on('lesson-finished', id => { if (onFinished) onFinished(id); });
+
   /* Each block type becomes one piece of the page. */
   const BLOCKS = {
     h(b) { return el('h2.step-h', { id: b._anchor, html: rich(b.text) }); },
@@ -68,6 +159,7 @@
     const l = Course.lessons[id];
     if (!l) return el('div.page', el('h1', 'That lesson is not here'), el('p', el('a', { href: '#learn' }, 'Go back to the course map')));
     Store.openLesson(id);
+    const finishedOnOpen = Q.finishIfAllRight(l);
     const m = l.module;
     const outline = [];
 
@@ -105,7 +197,7 @@
       },
     });
 
-    const head = el('header.lesson-head',
+    const head = el('header.lesson-head', { 'data-at': 'top' },
       el('p.crumb', el('a', { href: '#learn' }, 'Course'), ' / ', el('a', { href: `#module-${m.id}` }, `${m.num}. ${m.title}`), ` / Lesson ${l.num}`),
       el('h1', { html: rich(l.title) }),
       el('p.lesson-goal', { html: rich(l.goal) }),
@@ -114,13 +206,14 @@
         l.optional ? el('span.chip', 'Bonus lesson') : null,
         el('span.ide-gap'),
         noteBtn, saveBtn),
-      noteBox);
+      noteBox,
+      Q.saveNote());
     page.append(head);
 
     // Remember: quick questions from earlier lessons. This is what makes things stick.
     const warm = warmups(l);
     if (warm.length) {
-      const sec = el('section.warmup', { id: 'sec-warm' }, el('h2.step-h', 'Warm up: do you remember?'),
+      const sec = el('section.warmup', { id: 'sec-warm', 'data-at': 'top' }, el('h2.step-h', 'Warm up: do you remember?'),
         el('p', 'These come from earlier lessons. A wrong answer is fine. It shows what to look at again.'));
       warm.forEach(qid => {
         const entry = Course.questions[qid];
@@ -138,12 +231,14 @@
         b._anchor = `s${n}`;
         outline.push({ id: b._anchor, text: b.text.replace(/[`*]/g, '') });
       }
-      main.append(make(b, { lesson: l, n }));
+      const node = make(b, { lesson: l, n });
+      node.dataset.at = `s${n}`;
+      main.append(node);
     });
     page.append(main);
 
     if (l.recap && l.recap.length) {
-      page.append(el('section.recap', { id: 'sec-recap' }, el('h2.step-h', 'What you can do now'),
+      page.append(el('section.recap', { id: 'sec-recap', 'data-at': 'recap' }, el('h2.step-h', 'What you can do now'),
         el('ul', l.recap.map(r => el('li', { html: icon('check', 18) + `<span>${rich(r)}</span>` })))));
       outline.push({ id: 'sec-recap', text: 'What you can do now' });
     }
@@ -156,10 +251,10 @@
         counter.textContent = `${n} of ${practice.length} done`;
       };
       update();
-      const sec = el('section.practice', { id: 'sec-practice' },
+      const sec = el('section.practice', { id: 'sec-practice', 'data-at': 'practice' },
         el('div.practice-head', el('h2.step-h', 'Practice'), counter),
         el('p', 'Try each one yourself first. Every question has hints and an answer you can open at any time.'));
-      practice.forEach(q => Q.render(sec, q, { onDone: update }));
+      practice.forEach(q => { Q.render(sec, q, { onDone: update }).dataset.at = `p:${q.id}`; });
       page.append(sec);
       outline.push({ id: 'sec-practice', text: 'Practice' });
     }
@@ -169,32 +264,38 @@
     const nxt = Course.next(id), prv = Course.prev(id);
     const finishNote = el('p.finish-note', { role: 'status' });
     const finishBtn = el('button.btn.btn-marker.btn-big', { type: 'button' });
-    const paintFinish = () => {
+    const paintFinish = byItself => {
       finishBtn.innerHTML = done() ? icon('check', 20) + '<span>Lesson finished</span>' : icon('check', 20) + '<span>I finished this lesson</span>';
       finishBtn.setAttribute('aria-pressed', String(done()));
-      finishNote.textContent = done() ? 'You will see some of these questions again in a day or two. That is how memory gets strong.' : '';
+      const again = 'You will see some of these questions again in a day or two. That is how memory gets strong.';
+      finishNote.textContent = !done() ? '' : byItself ? `You got every question right, so this lesson is marked finished. Press the button above to undo that. ${again}` : again;
     };
     finishBtn.addEventListener('click', () => {
       if (done()) Store.reopenLesson(id); else Store.finishLesson(id);
       paintFinish();
       if (root.App && root.App.refreshRail) root.App.refreshRail();
     });
-    paintFinish();
-    page.append(el('footer.lesson-foot', { id: 'sec-finish' }, finishBtn, finishNote,
+    paintFinish(finishedOnOpen);
+    onFinished = doneId => { if (doneId === id) paintFinish(true); };
+    page.append(el('footer.lesson-foot', { id: 'sec-finish', 'data-at': 'finish' }, finishBtn, finishNote, Q.saveNote(),
       el('nav.lesson-nav', { 'aria-label': 'Lesson order' },
         prv ? el('a.btn.btn-quiet', { href: `#lesson-${prv.id}` }, `Back: ${prv.title.replace(/[`*]/g, '')}`) : el('span'),
-        nxt ? el('a.btn.btn-primary', { href: `#lesson-${nxt.id}`, html: `<span>Next: ${root.UI.esc(nxt.title.replace(/[`*]/g, ''))}</span>` + icon('arrow', 18) }) : el('a.btn.btn-primary', { href: '#progress' }, 'See your progress'))));
+        nxt ? el('a.btn.btn-primary', { href: `#lesson-${nxt.id}`, html: `<span>Next: ${root.UI.esc(nxt.title.replace(/[`*]/g, ''))}</span>` + icon('arrow', 18) }) : el('a.btn.btn-primary', { href: '#progress' }, 'See your progress')),
+      el('button.to-top', { type: 'button', onclick: () => goToTop(id) }, 'Back to the top of this lesson')));
 
     const rail = el('nav.lesson-rail', { 'aria-label': 'In this lesson' },
       el('p.rail-title', 'In this lesson'),
+      el('button.to-top', { type: 'button', onclick: () => goToTop(id) }, 'Top of the lesson'),
       el('ol', outline.map(o => el('li', el('a', {
         href: `#lesson-${id}`,
         onclick: e => {
           e.preventDefault();
+          stopSettling();
           const t = document.getElementById(o.id);
           if (t) { t.scrollIntoView({ block: 'start' }); t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); }
         },
       }, o.text)))));
+    here = { id, page, settling: false, pill: null, pillY: 0 };
     return el('div.lesson-layout', page, rail);
   }
 
@@ -220,5 +321,5 @@
     return picks.slice(0, 3);
   }
 
-  root.Lesson = { render: renderLesson, warmups };
+  root.Lesson = { render: renderLesson, warmups, resume, leave };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -531,6 +531,15 @@ text.mono { font-family: var(--font-code); }
 .q-kind { font: 750 0.95rem var(--font-head); }
 .q-level { font-size: 0.8rem; font-weight: 600; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--hair); color: var(--ink-2); }
 .q-state { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; font-size: 0.86rem; font-weight: 700; color: var(--mint); }
+.q-state-before { color: var(--ink-2); font-weight: 600; }
+.q[tabindex="-1"]:focus { outline: none; }
+.q-retry { margin-left: auto; }
+.q-actions .q-retry { min-height: 38px; padding: 4px 12px; font-size: 0.9rem; }
+.q-undo { font: inherit; color: var(--blue); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.q-autodone { padding: 8px 14px; background: var(--sky); border-radius: 8px; }
+.q-lastrun { font-size: 0.9rem; color: var(--ink-2); }
+.q-typed:read-only { background: var(--mint-bg); border-color: var(--mint); }
+.order-line:disabled { cursor: default; background: var(--card); }
 .q-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
 .q-label { font-weight: 600; font-size: 0.96rem; }
 .q-typed { width: 100%; font-family: var(--font-code); font-size: 0.95rem; }
@@ -605,6 +614,15 @@ table.data, table.trace { border-collapse: collapse; width: 100%; font-size: 1re
 .btn-marker[aria-pressed="true"] { background: var(--mint-bg); color: var(--ink); border-color: var(--mint); box-shadow: 0 3px 0 var(--mint); }
 .finish-note { color: var(--ink-2); max-width: var(--measure); }
 .finish-note:empty { display: none; }
+.save-note { display: inline-flex; gap: 5px; align-items: center; font-size: 0.86rem; color: var(--ink-2); }
+.save-note .ic { color: var(--mint); flex: none; }
+.save-note.bad { display: block; color: var(--ink); background: var(--amber-bg); border: 2px solid var(--amber); border-radius: 8px; padding: 8px 12px; font-size: 0.95rem; }
+.to-top { font: 600 0.92rem var(--font-body); color: var(--ink-2); background: none; border: 0; padding: 6px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; min-height: 36px; }
+.to-top:hover { color: var(--ink); }
+.lesson-rail .to-top { padding: 0 0 6px; min-height: 0; text-align: left; }
+.resume-pill, .save-warn { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: 16px; width: max-content; max-width: min(560px, calc(100vw - 24px)); display: flex; gap: 12px; align-items: center; background: var(--card); border: 2px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px 8px 8px 14px; font-size: 0.95rem; }
+.resume-pill .btn, .save-warn .btn { min-height: 40px; padding: 4px 12px; font-size: 0.92rem; white-space: nowrap; flex: none; background: var(--card); }
+.save-warn { background: var(--amber-bg); border-color: var(--amber); z-index: 41; }
 .lesson-nav { display: flex; justify-content: space-between; gap: 10px; width: 100%; flex-wrap: wrap; }
 .lesson-nav .btn { text-align: left; }
 
@@ -764,6 +782,8 @@ fieldset.seg input:focus-visible + span { outline: 3px solid var(--blue); outlin
   .chain-node:not(:last-child)::after { left: 31px; }
   .chain-node:not(:last-child)::before { left: 26px; }
   .q-actions .btn, .ide-tools .btn { min-height: 44px; }
+  .q-actions .q-retry { min-height: 44px; }
+  .resume-pill, .save-warn { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
   .ide-tools .btn-quiet span { font-size: 0.9rem; }
 }
 @media (prefers-reduced-motion: reduce) {
